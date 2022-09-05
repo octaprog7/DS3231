@@ -58,8 +58,11 @@ class I2cAdapter(BusAdapter):
     def read(self, device_addr, n_bytes: int) -> bytes:
         return self.bus.readfrom(device_addr, n_bytes)
     
-    def read_buf(self, device_addr, mem_addr, buf) -> None:
+    def read_buf_from_mem(self, device_addr, mem_addr, buf):
         return self.bus.readfrom_mem_into(device_addr, mem_addr, buf)
 
     def write(self, device_addr, buf: bytes):
         return self.bus.writeto(device_addr, buf)
+
+    def write_buf_to_mem(self, device_addr, mem_addr, buf):
+        return self.bus.writeto_mem(device_addr, mem_addr, buf)
