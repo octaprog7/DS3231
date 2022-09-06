@@ -15,5 +15,5 @@ if __name__ == '__main__':
         ao = clock.get_aging_offset()
         tr = clock.get_time()
         print(f"Temperature: {tmp}\tstatus: {hex(stat)}\taging offset: {hex(ao)}")
-        print(f"RAW time: {tr}")
+        print(f"Local time: {tr}")
         utime.sleep_ms(1000)
