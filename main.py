@@ -7,13 +7,22 @@ import utime
 if __name__ == '__main__':
     i2c = I2C(id=1, freq=400_000)  # on Arduino Nano RP2040 Connect tested
     adaptor = I2cAdapter(i2c)
-    clock = DS3221(adapter=adaptor, address=0x68, big_byte_order=False)
+    clock = DS3221(adapter=adaptor)
 
-    while True:
-        tmp = clock.get_temperature()
-        stat = clock.get_status()
-        ao = clock.get_aging_offset()
-        tr = clock.get_time()
-        print(f"Temperature: {tmp}\tstatus: {hex(stat)}\taging offset: {hex(ao)}")
-        print(f"Local time: {tr}")
+    print(f"Call get_time() method")
+    tr = clock.get_time()
+    print(f"Local time: {tr}")
+
+    tmp = clock.get_temperature()
+    stat = clock.get_status()
+    ao = clock.get_aging_offset()
+    print(f"Temperature: {tmp}\tstatus: {hex(stat)}\taging offset: {hex(ao)}")
+
+    print("Alarm times:")
+    print("First:", clock.get_alarm())
+    print("Second:", clock.get_alarm(False))
+
+    print(f"Using iterator...")
+    for ltime in clock:
+        print(f"Local time: {ltime}")
         utime.sleep_ms(1000)
