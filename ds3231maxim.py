@@ -28,10 +28,19 @@ def to_bytes(num) -> bytearray:
 
 class DS3221(Device, Iterator):
     """Class for work with DS3231 clock from Maxim Integrated или как она сейчас называется!?"""
+    @staticmethod
+    def _convert_hours(hour_byte: int) -> int:
+        hour = bcd_to_int(hour_byte)
+        if hour_byte & 0x40:
+            hour = bcd_to_int(hour_byte & 0x1F)
+            if hour_byte & 0x20:
+                hour = 12 + hour_byte
+        return hour
 
     def __init__(self, adapter: bus_service.BusAdapter, address: int = 0x68, big_byte_order: bool = False):
         super().__init__(adapter, address, big_byte_order)
         self._tbuf = bytearray(7)
+        self._alarm.buf = bytearray(3)
 
     def _read_register(self, reg_addr, bytes_count=2) -> bytes:
         """считывает из регистра датчика значение.
@@ -65,13 +74,7 @@ class DS3221(Device, Iterator):
             if i in (0, 1, 4, 6):
                 buf[i] = bcd_to_int(val)
             if 2 == i:  # hours
-                if val & 0x40:
-                    buf[i] = bcd_to_int(val & mask)
-                    if val & 0x20:
-                        buf[i] += 12
-                else:
-                    buf[i] = bcd_to_int(val)
-
+                buf[i] = DS3221._convert_hours(val)
             if 5 == i:  # month
                 buf[i] = bcd_to_int(val & mask)
         # -----         YY       MM      DD      HH      MM      SS    WDAY    no year day
@@ -95,6 +98,19 @@ class DS3221(Device, Iterator):
                     value = to_bytes(int_to_bcd(local_time[k[ind]] - 2_000))
 
             self.adapter.write_buf_to_mem(self.address, ind, value)
+
+    def get_alarm(self, first: bool = True) -> tuple:
+        """return alarm as tupleL (day, hour, minutes)
+        if first, then return firs alarm setup set, else return second alarm setup set
+        if day in 1..7, then day - day of week.
+        if day in 1..31, then day - day of month"""
+        alarm_addr = 8
+        if not first:
+            alarm_addr += 3
+        a_buf = self._alarm.buf
+        self.adapter.read_buf_from_mem(self.address, alarm_addr, a_buf)
+        minutes = bcd_to_int(a_buf[0])
+        hour = a_buf[1]
 
     def __next__(self) -> tuple:
         """For support iterating."""
