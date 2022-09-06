@@ -30,17 +30,18 @@ class DS3221(Device, Iterator):
     """Class for work with DS3231 clock from Maxim Integrated или как она сейчас называется!?"""
     @staticmethod
     def _convert_hours(hour_byte: int) -> int:
-        hour = bcd_to_int(hour_byte)
-        if hour_byte & 0x40:
+        # In the 24-hour mode, bit 5 is the 20-hour bit (20–23 hours)
+        hour = bcd_to_int(hour_byte & 0x3F)
+        if hour_byte & 0x40:    # When high, 12-hour mode is selected
             hour = bcd_to_int(hour_byte & 0x1F)
-            if hour_byte & 0x20:
+            if hour_byte & 0x20:    # AM/PM bit with logic-high being PM
                 hour = 12 + hour_byte
         return hour
 
     def __init__(self, adapter: bus_service.BusAdapter, address: int = 0x68, big_byte_order: bool = False):
         super().__init__(adapter, address, big_byte_order)
         self._tbuf = bytearray(7)
-        self._alarm.buf = bytearray(3)
+        self._alarm_buf = bytearray(3)
 
     def _read_register(self, reg_addr, bytes_count=2) -> bytes:
         """считывает из регистра датчика значение.
@@ -104,13 +105,31 @@ class DS3221(Device, Iterator):
         if first, then return firs alarm setup set, else return second alarm setup set
         if day in 1..7, then day - day of week.
         if day in 1..31, then day - day of month"""
-        alarm_addr = 8
+        ba = self.bit_alarms
+        a_buf = self._alarm_buf
+        alarm_addr, seconds = 8, 0
+        mask7 = 0x80
+        if first:   # read alarm seconds 1..59
+            ba[0] = self.adapter.read_register(self.address, 0x07, 1)[0]
+            seconds = bcd_to_int(0x7F & ba[0])
+            ba[0] &= mask7
         if not first:
             alarm_addr += 3
-        a_buf = self._alarm.buf
         self.adapter.read_buf_from_mem(self.address, alarm_addr, a_buf)
         minutes = bcd_to_int(a_buf[0])
-        hour = a_buf[1]
+        hour = DS3221._convert_hours(a_buf[1])
+        if 0x40 & a_buf[2]:
+            day = 0x0F & a_buf[2]   # # day of week
+        else:   # day of month
+            day = 0x3F & a_buf[2]
+
+        # alarm bitmask
+        for i in range(3):
+            ba[1 + i] = mask7 & a_buf[i]
+
+        if first:
+            return (day, hour, minutes, seconds), ba
+        return (day, hour, minutes), (ba[1:4])
 
     def __next__(self) -> tuple:
         """For support iterating."""
