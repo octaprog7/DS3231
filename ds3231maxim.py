@@ -28,6 +28,7 @@ def to_bytes(num) -> bytearray:
 
 class DS3221(Device, Iterator):
     """Class for work with DS3231 clock from Maxim Integrated или как она сейчас называется!?"""
+
     @staticmethod
     def _convert_hours(hour_byte: int) -> int:
         # In the 24-hour mode, bit 5 is the 20-hour bit (20–23 hours)
@@ -42,6 +43,7 @@ class DS3221(Device, Iterator):
         super().__init__(adapter, address, big_byte_order)
         self._tbuf = bytearray(7)
         self._alarm_buf = bytearray(3)
+        self.bit_alarms = bytearray(4)
 
     def _read_register(self, reg_addr, bytes_count=2) -> bytes:
         """считывает из регистра датчика значение.
@@ -65,7 +67,7 @@ class DS3221(Device, Iterator):
 
     def get_aging_offset(self) -> int:
         return self._read_register(0x10, 1)[0]
-
+    
     def get_time(self) -> tuple:
         """возвращает время, как в виде кортежа (как localtime())
         (year, month, mday, hour, minute, second, weekday, yearday)"""
@@ -78,9 +80,9 @@ class DS3221(Device, Iterator):
                 buf[i] = DS3221._convert_hours(val)
             if 5 == i:  # month
                 buf[i] = bcd_to_int(val & mask)
-        # -----         YY       MM      DD      HH      MM      SS    WDAY    no year day
-        return 2_000 + buf[6], buf[5], buf[4], buf[2], buf[1], buf[0], buf[3], -1  #
-
+        # -----       YY       MM      DD      HH      MM      SS    WDAY    no year day
+        return 2_000+buf[6], buf[5], buf[4], buf[2], buf[1], buf[0], buf[3], -1,  
+    
     def set_time(self, local_time):
         """ГГГГ, ММ, ДД, ЧЧ, ММ, СС, день недели, день года
         это формат времени, возвращаемого функцией localtime()"""
@@ -97,7 +99,7 @@ class DS3221(Device, Iterator):
                     value = to_bytes(0x80 + int_to_bcd(local_time[k[ind]]))
                 if 6 == ind:
                     value = to_bytes(int_to_bcd(local_time[k[ind]] - 2_000))
-
+        
             self.adapter.write_buf_to_mem(self.address, ind, value)
 
     def get_alarm(self, first: bool = True) -> tuple:
@@ -109,6 +111,7 @@ class DS3221(Device, Iterator):
         a_buf = self._alarm_buf
         alarm_addr, seconds = 8, 0
         mask7 = 0x80
+        mask6 = 0x40
         if first:   # read alarm seconds 1..59
             ba[0] = self.adapter.read_register(self.address, 0x07, 1)[0]
             seconds = bcd_to_int(0x7F & ba[0])
@@ -126,11 +129,17 @@ class DS3221(Device, Iterator):
         # alarm bitmask
         for i in range(3):
             ba[1 + i] = mask7 & a_buf[i]
+        
+        dy_dt = bool(mask6 & a_buf[2])
 
         if first:
-            return (day, hour, minutes, seconds), ba
-        return (day, hour, minutes), (ba[1:4])
-
+            return (day, hour, minutes, seconds), (dy_dt, bool(ba[3]), bool(ba[2]), bool(ba[1]), bool(ba[0]))
+        return (day, hour, minutes), (dy_dt, bool(ba[3]), bool(ba[2]), bool(ba[1]))
+    
+    def get_alarm_bitmask(self, first: bool = True) -> tuple:
+        """return alarm bit mask as tuple"""
+        pass
+    
     def __next__(self) -> tuple:
         """For support iterating."""
         return self.get_time()
