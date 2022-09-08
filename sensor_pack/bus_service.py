@@ -43,11 +43,16 @@ class I2cAdapter(BusAdapter):
     def __init__(self, bus: I2C):
         super().__init__(bus)
 
-    def write_register(self, device_addr: int, reg_addr: int, value: int,
+    def write_register(self, device_addr: int, reg_addr: int, value: [int, bytes, bytearray],
                        bytes_count: int, byte_order: str):
         """записывает данные value в датчик, по адресу reg_addr.
         bytes_count - кол-во записываемых данных"""
-        buf = value.to_bytes(bytes_count, byte_order)
+        buf = None
+        if isinstance(value, int):
+            buf = value.to_bytes(bytes_count, byte_order)
+        if isinstance(value, (bytes, bytearray)):
+            buf = value
+
         return self.bus.writeto_mem(device_addr, reg_addr, buf)
 
     def read_register(self, device_addr: int, reg_addr: int, bytes_count: int) -> bytes:
