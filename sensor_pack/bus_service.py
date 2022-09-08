@@ -21,7 +21,7 @@ class BusAdapter:
         reg_addr - register address in the address space of the sensor"""
         raise NotImplementedError
 
-    def write_register(self, device_addr: int, reg_addr: int, value: int,
+    def write_register(self, device_addr: int, reg_addr: int, value: [int, bytes, bytearray],
                        bytes_count: int, byte_order: str):
         """записывает данные value в датчик, по адресу reg_addr.
         bytes_count - кол-во записываемых байт из value.
