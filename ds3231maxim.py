@@ -19,7 +19,7 @@ def bcd_to_int(bcd) -> int:
 
 def int_to_bcd(value: int) -> int:
     """convert int to bcd"""
-    return int(str(value), base=16)
+    return int(str(value), 16)
 
 
 def to_bytes(num) -> bytearray:
@@ -28,6 +28,12 @@ def to_bytes(num) -> bytearray:
 
 class DS3221(Device, Iterator):
     """Class for work with DS3231 clock from Maxim Integrated или как она сейчас называется!?"""
+    #           alarm 1 register masks            alarm 2 register masks
+    _mask_alarms = (0x0E, 0x0C, 0x08, 0x00, 0x10), (0x06, 0x04, 0x00, 0x08)
+
+    @staticmethod
+    def _get_alarm_mask(alarm_id: int):
+        return DS3221._mask_alarms[alarm_id]
 
     @staticmethod
     def _convert_hours(hour_byte: int) -> int:
@@ -112,11 +118,9 @@ class DS3221(Device, Iterator):
             self.adapter.write_buf_to_mem(self.address, ind, value)
 
     def get_alarm(self, alarm_id: int = 0) -> tuple:
-        """return alarm as tuple (first is True): (seconds, minutes, hour, day, AxM1 bits - alarm bits)
-        return alarm as tuple (first is False): (minutes, hour, day, AxM1 bits - alarm bits)
-        if first, then return firs alarm setup set, else return second alarm setup set
-        if day in 1..7, then day - day of week.
-        if day in 1..31, then day - day of month"""
+        """return alarm as tuple: (seconds, minutes, hour, day, match_value)
+        alarm_id must be 0 or 1!
+        match_value description pls see in set_alarm method below!"""
         base_sensor.check_value(alarm_id, (0, 1), f"Invalid alarm_id parameter: {alarm_id}")
 
         mask7 = 0x80
@@ -152,26 +156,32 @@ class DS3221(Device, Iterator):
         if mask6 & a_buf[_max - 1]:    # DY_DT bit
             alarm_byte |= mask6
 
+        tt = self._get_alarm_mask(alarm_id)
+        # print(tt, hex(alarm_byte))
+        if alarm_byte in tt:
+            alarm_byte = tt.index(alarm_byte)     # match mode
+        else:
+            alarm_byte = None        # no match mode
+        
         return t, alarm_byte
 
     #   alarm_time - tuple (second, minute, hour, day)
     #   match_value - int
-    #        first  parameter is True
+    #        alarm_id == 0
     #           0:  Alarm when seconds match
     #           1:  Alarm when minutes and seconds match    (first is True)
     #           2:  Alarm when hours, minutes, and seconds match    (first is True)
     #           3:  Alarm when date_of_month, hours, minutes, and seconds match (first is True)
     #           4:  Alarm when day_of week, hours, minutes, and seconds match (first is True)
     #
-    #        first  parameter is False
+    #        alarm_id == 1
     #           0:  Alarm when minutes match
     #           1:  Alarm when hours and minutes match
     #           2:  Alarm when date_of_month, hours, and minutes match
     #           3:  Alarm when day_of week, hours, and minutes match
 
     def set_alarm(self, alarm_time: tuple, match_value: int = 2, alarm_id: int = 0):
-        """set alarm bit mask.
-        alarm_id must be 0 or 1!"""
+        """Set alarm bit mask. Alarm_id must be 0 or 1!"""
         base_sensor.check_value(alarm_id, (0, 1), f"Invalid alarm_id parameter: {alarm_id}")
         base_sensor.check_value(match_value,
                                 range(5 if 0 == alarm_id else 4),
@@ -185,9 +195,7 @@ class DS3221(Device, Iterator):
         if alarm_id > 0:
             cnt, offs = 3, 1
 
-        #           alarm 1 register masks            alarm 2 register masks
-        mask_alarm = (0x0E, 0x0C, 0x80, 0x00, 0x10), (0x06, 0x04, 0x00, 0x08)
-        am = mask_alarm[alarm_id][match_value]
+        am = self._get_alarm_mask(alarm_id)[match_value]
         mask = 0
         for i in range(cnt):
             if am & (1 << i):
