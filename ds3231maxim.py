@@ -31,6 +31,7 @@ class DS3221(Device, Iterator):
 
     @staticmethod
     def _convert_hours(hour_byte: int) -> int:
+        # print(f"hour_byte: {hex(hour_byte)}")
         # In the 24-hour mode, bit 5 is the 20-hour bit (20–23 hours)
         hour = bcd_to_int(hour_byte & 0x3F)
         if hour_byte & 0x40:    # When high, 12-hour mode is selected
@@ -39,11 +40,19 @@ class DS3221(Device, Iterator):
                 hour = 12 + hour_byte
         return hour
 
+    @staticmethod
+    def _get_day_or_date(value: int) -> int:
+        """return day of week or day of month by value"""
+        if 0x40 & value:
+            return bcd_to_int(0x0F & value)     # day of week
+        else:
+            return bcd_to_int(0x3F & value)     # day of month
+
     def __init__(self, adapter: bus_service.BusAdapter, address: int = 0x68, big_byte_order: bool = False):
         super().__init__(adapter, address, big_byte_order)
         self._tbuf = bytearray(7)
-        self._alarm_buf = bytearray(3)
-        self.bit_alarms = bytearray(4)
+        self._alarm_buf = bytearray(4)
+        # self.bit_alarms = bytearray(4)
 
     def _read_register(self, reg_addr, bytes_count=2) -> bytes:
         """считывает из регистра датчика значение.
@@ -103,43 +112,59 @@ class DS3221(Device, Iterator):
             self.adapter.write_buf_to_mem(self.address, ind, value)
 
     def get_alarm(self, first: bool = True) -> tuple:
-        """return alarm as tupleL (day, hour, minutes)
+        """return alarm as tuple (first is True): (seconds, minutes, hour, day, AxM1 bits - alarm bits)
+        return alarm as tuple (first is False): (minutes, hour, day, AxM1 bits - alarm bits)
         if first, then return firs alarm setup set, else return second alarm setup set
         if day in 1..7, then day - day of week.
         if day in 1..31, then day - day of month"""
-        ba = self.bit_alarms
-        a_buf = self._alarm_buf
-        alarm_addr, seconds = 8, 0
         mask7 = 0x80
         mask6 = 0x40
-        if first:   # read alarm seconds 1..59
-            ba[0] = self.adapter.read_register(self.address, 0x07, 1)[0]
-            seconds = bcd_to_int(0x7F & ba[0])
-            ba[0] &= mask7
+        mask7f = 0x7F
+
+        a_buf = self._alarm_buf
+        alarm_addr, seconds = 7, 0
         if not first:
-            alarm_addr += 3
+            alarm_addr += 4
+
         self.adapter.read_buf_from_mem(self.address, alarm_addr, a_buf)
-        minutes = bcd_to_int(a_buf[0])
-        hour = DS3221._convert_hours(a_buf[1])
-        if 0x40 & a_buf[2]:
-            day = 0x0F & a_buf[2]   # # day of week
-        else:   # day of month
-            day = 0x3F & a_buf[2]
+        if first:
+            # sec   min     hour    day
+            t = bcd_to_int(mask7f & a_buf[0]), \
+                bcd_to_int(mask7f & a_buf[1]), \
+                DS3221._convert_hours(a_buf[2]), \
+                self._get_day_or_date(a_buf[3])
+        else:   # min     hour    day
+            t = bcd_to_int(mask7f & a_buf[0]), \
+                DS3221._convert_hours(a_buf[1]), \
+                self._get_day_or_date(a_buf[2])
 
         # alarm bitmask
-        for i in range(3):
-            ba[1 + i] = mask7 & a_buf[i]
+        alarm_byte = 0
+        _max = 4
+        if not first:
+            _max -= 1
+        for i in range(_max):   # AxM1, AxM2, AxM3, AxM4 bits
+            if mask7 & a_buf[i]:
+                alarm_byte |= 1 << i
         
-        dy_dt = bool(mask6 & a_buf[2])
+        if mask6 & a_buf[_max - 1]:    # DY_DT bit
+            alarm_byte |= mask6
 
-        if first:
-            return (day, hour, minutes, seconds), (dy_dt, bool(ba[3]), bool(ba[2]), bool(ba[1]), bool(ba[0]))
-        return (day, hour, minutes), (dy_dt, bool(ba[3]), bool(ba[2]), bool(ba[1]))
-    
-    def get_alarm_bitmask(self, first: bool = True) -> tuple:
-        """return alarm bit mask as tuple"""
-        pass
-    
+        return t, alarm_byte
+
+    def set_alarm_bitmask(self, first: bool,
+                          alarm_time: tuple,    # utime.localtime() format
+                          sec_flag: bool,
+                          minite_flag: bool,
+                          hour_flag: bool,
+                          day_flag: bool):
+        """set alarm bit mask"""
+        a_buf = self._alarm_buf
+        alarm_addr = 7
+        if not first:
+            alarm_addr += 4
+        ...
+
     def __next__(self) -> tuple:
         """For support iterating."""
         return self.get_time()
