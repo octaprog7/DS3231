@@ -12,15 +12,19 @@ if __name__ == '__main__':
     print(f"Call get_time() method")
     tr = clock.get_time()
     print(f"Local time: {tr}")
-
+    
     tmp = clock.get_temperature()
     stat = clock.get_status()
     ao = clock.get_aging_offset()
     print(f"Temperature: {tmp}\tstatus: {hex(stat)}\taging offset: {hex(ao)}")
 
     print("Alarm times:")
-    print("First:", clock.get_alarm())
-    print("Second:", clock.get_alarm(False))
+    print("get_alarm(0):", clock.get_alarm(0))
+    print("get_alarm(1):", clock.get_alarm(1))
+
+    print("Call: set_alarm((11, 12, 13, 14), 2)")
+    clock.set_alarm((11, 12, 13, 14), 2)
+    print("get_alarm(0):", clock.get_alarm(0))
 
     print(f"Using iterator...")
     for ltime in clock:
