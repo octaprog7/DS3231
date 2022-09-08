@@ -1,7 +1,7 @@
 """мой "драйвер" часов DS3231. Я его написал, потому-что устал смотреть на ..."""
 import micropython
 
-from sensor_pack import bus_service
+from sensor_pack import bus_service, base_sensor
 from sensor_pack.base_sensor import Device, Iterator
 
 import sys
@@ -111,23 +111,25 @@ class DS3221(Device, Iterator):
         
             self.adapter.write_buf_to_mem(self.address, ind, value)
 
-    def get_alarm(self, first: bool = True) -> tuple:
+    def get_alarm(self, alarm_id: int = 0) -> tuple:
         """return alarm as tuple (first is True): (seconds, minutes, hour, day, AxM1 bits - alarm bits)
         return alarm as tuple (first is False): (minutes, hour, day, AxM1 bits - alarm bits)
         if first, then return firs alarm setup set, else return second alarm setup set
         if day in 1..7, then day - day of week.
         if day in 1..31, then day - day of month"""
+        base_sensor.check_value(alarm_id, (0, 1), f"Invalid alarm_id parameter: {alarm_id}")
+
         mask7 = 0x80
         mask6 = 0x40
         mask7f = 0x7F
 
         a_buf = self._alarm_buf
         alarm_addr, seconds = 7, 0
-        if not first:
+        if alarm_id > 0:
             alarm_addr += 4
 
         self.adapter.read_buf_from_mem(self.address, alarm_addr, a_buf)
-        if first:
+        if 0 == alarm_id:
             # sec   min     hour    day
             t = bcd_to_int(mask7f & a_buf[0]), \
                 bcd_to_int(mask7f & a_buf[1]), \
@@ -141,7 +143,7 @@ class DS3221(Device, Iterator):
         # alarm bitmask
         alarm_byte = 0
         _max = 4
-        if not first:
+        if alarm_id > 0:
             _max -= 1
         for i in range(_max):   # AxM1, AxM2, AxM3, AxM4 bits
             if mask7 & a_buf[i]:
@@ -152,18 +154,57 @@ class DS3221(Device, Iterator):
 
         return t, alarm_byte
 
-    def set_alarm_bitmask(self, first: bool,
-                          alarm_time: tuple,    # utime.localtime() format
-                          sec_flag: bool,
-                          minite_flag: bool,
-                          hour_flag: bool,
-                          day_flag: bool):
-        """set alarm bit mask"""
+    #   alarm_time - tuple (second, minute, hour, day)
+    #   match_value - int
+    #        first  parameter is True
+    #           0:  Alarm when seconds match
+    #           1:  Alarm when minutes and seconds match    (first is True)
+    #           2:  Alarm when hours, minutes, and seconds match    (first is True)
+    #           3:  Alarm when date_of_month, hours, minutes, and seconds match (first is True)
+    #           4:  Alarm when day_of week, hours, minutes, and seconds match (first is True)
+    #
+    #        first  parameter is False
+    #           0:  Alarm when minutes match
+    #           1:  Alarm when hours and minutes match
+    #           2:  Alarm when date_of_month, hours, and minutes match
+    #           3:  Alarm when day_of week, hours, and minutes match
+
+    def set_alarm(self, alarm_time: tuple, match_value: int = 2, alarm_id: int = 0):
+        """set alarm bit mask.
+        alarm_id must be 0 or 1!"""
+        base_sensor.check_value(alarm_id, (0, 1), f"Invalid alarm_id parameter: {alarm_id}")
+        base_sensor.check_value(match_value,
+                                range(5 if 0 == alarm_id else 4),
+                                f"Invalid match_value parameter: {match_value}")
         a_buf = self._alarm_buf
         alarm_addr = 7
-        if not first:
+        if alarm_id > 0:
             alarm_addr += 4
-        ...
+
+        cnt, offs = 4, 0
+        if alarm_id > 0:
+            cnt, offs = 3, 1
+
+        #           alarm 1 register masks            alarm 2 register masks
+        mask_alarm = (0x0E, 0x0C, 0x80, 0x00, 0x10), (0x06, 0x04, 0x00, 0x08)
+        am = mask_alarm[alarm_id][match_value]
+        mask = 0
+        for i in range(cnt):
+            if am & (1 << i):
+                mask = 0x80
+            if i == cnt - 1:
+                # последний бит DY/DT
+                mask |= am & (1 << cnt)
+
+            a_buf[i] = mask | int_to_bcd(alarm_time[i + offs])
+
+        byte_order = self._get_byteorder_as_str()[0]
+        self.adapter.write_register(self.address,
+                                    alarm_addr,
+                                    a_buf,
+                                    cnt,
+                                    byte_order
+                                    )
 
     def __next__(self) -> tuple:
         """For support iterating."""
