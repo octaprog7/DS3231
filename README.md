@@ -25,7 +25,7 @@ Don't forget the 4K7 pull-up resistors!
 # Pictures
 
 ## IDE
-![alt text](https://github.com/octaprog7/BMP390/blob/master/ide390.png)
+![alt text](https://github.com/octaprog7/ds3131/blob/master/ide3231.png)
 ## Breadboard
-![alt text](https://github.com/octaprog7/BMP390/blob/master/board390.jpg)
+![alt text](https://github.com/octaprog7/ds3131/blob/master/board3231.jpg)
 
