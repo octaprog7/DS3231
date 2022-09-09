@@ -1,4 +1,4 @@
-# BMP390
+# DS3231
 Micropython module for DS3231 Maxim Integrated Extremely Accurate I2C RTC.
 
 Just connect your DS3231 module board to Arduino, ESP or any other board with MicroPython firmware.
