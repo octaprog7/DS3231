@@ -58,7 +58,6 @@ class DS3221(Device, Iterator):
         super().__init__(adapter, address, big_byte_order)
         self._tbuf = bytearray(7)
         self._alarm_buf = bytearray(4)
-        # self.bit_alarms = bytearray(4)
 
     def _read_register(self, reg_addr, bytes_count=2) -> bytes:
         """считывает из регистра датчика значение.
@@ -71,9 +70,31 @@ class DS3221(Device, Iterator):
         byte_order = self._get_byteorder_as_str()[0]
         return self.adapter.write_register(self.address, reg_addr, value, bytes_count, byte_order)
 
+    """№ bit                Description
+    ----------------------------------------------------
+        Bit 7:              Oscillator Stop Flag (OSF)
+        Bit 3:              Enable 32kHz Output
+        Bit 1:              Alarm 2 Flag (A2F)
+        Bit 0:              Alarm 1 Flag (A1F)
+    """
     def get_status(self) -> int:
-        """Чтение регистра состояния 0x0F"""
+        """Чтение 8 bit регистра состояния 0x0F"""
         return self._read_register(0x0F, 1)[0]
+
+    """№ bit                Description
+    ----------------------------------------------------
+        Bit 7:              Enable Oscillator (EOSC)
+        Bit 6:              Battery-Backed Square-Wave Enable (BBSQW)
+        Bit 5:              Convert Temperature (CONV)
+        Bits 4 and 3:       Rate Select (RS2 and RS1)
+        Bit 2:              Interrupt Control (INTCN)
+        Bit 1:              Alarm 2 Interrupt Enable (A2IE)
+        Bit 0:              Alarm 1 Interrupt Enable (A1IE)
+    """
+    def get_control(self) -> int:
+        """Возвращает байт регистра управления.
+        Returns the control register byte."""
+        return self._read_register(0x0E, 1)[0]
 
     def get_temperature(self) -> float:
         """возвращает температуру микросхемы часов в градусах Цельсия"""
