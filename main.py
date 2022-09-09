@@ -15,8 +15,9 @@ if __name__ == '__main__':
     
     tmp = clock.get_temperature()
     stat = clock.get_status()
+    ctrl = clock.get_control()
     ao = clock.get_aging_offset()
-    print(f"Temperature: {tmp}\tstatus: {hex(stat)}\taging offset: {hex(ao)}")
+    print(f"Temperature: {tmp}\tstatus: {hex(stat)}\tcontrol: {hex(ctrl)}\ttaging offset: {hex(ao)}")
 
     print("Alarm times:")
     print("get_alarm(0):", clock.get_alarm(0))
