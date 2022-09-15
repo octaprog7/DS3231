@@ -21,10 +21,6 @@ def int_to_bcd(value: int) -> int:
     return int(str(value), 16)
 
 
-def to_bytes(num) -> bytearray:
-    return num.to_bytes(1, sys.byteorder)
-
-
 class DS3221(Device, Iterator):
     """Class for work with DS3231 clock from Maxim Integrated или как эта фирма сейчас называется!?
     Please read DS3231 datasheet!"""
@@ -140,16 +136,16 @@ class DS3221(Device, Iterator):
         value = 0
         for ind in range(7):
             if ind not in v:
-                value = to_bytes(int_to_bcd(local_time[k[ind]]))
+                value = int_to_bcd(local_time[k[ind]])
             else:
                 if 3 == ind:
-                    value = to_bytes(int_to_bcd(local_time[k[ind]] + 1))
+                    value = int_to_bcd(local_time[k[ind]] + 1)
                 if 5 == ind:
-                    value = to_bytes(0x80 + int_to_bcd(local_time[k[ind]]))
+                    value = 0x80 + int_to_bcd(local_time[k[ind]])
                 if 6 == ind:
-                    value = to_bytes(int_to_bcd(local_time[k[ind]] - 2_000))
+                    value = int_to_bcd(local_time[k[ind]] - 2_000)
         
-            self.adapter.write_buf_to_mem(self.address, ind, value)
+            self.adapter.write_buf_to_mem(self.address, ind, value.to_bytes(1, sys.byteorder))
 
     def get_alarm(self, alarm_id: int = 0) -> tuple:
         """return alarm time as tuple: (seconds, minutes, hour, day, match_value)
