@@ -5,6 +5,10 @@ import utime
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    # Внимание!!!
+    # Замените id=1 на id=0, если пользуетесь первым портом I2C !!!
+    # Warning!!!
+    # Replace id=1 with id=0 if you are using the first I2C port !!!
     i2c = I2C(id=1, freq=400_000)  # on Arduino Nano RP2040 Connect tested
     adaptor = I2cAdapter(i2c)
     clock = DS3221(adapter=adaptor)
