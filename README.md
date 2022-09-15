@@ -13,7 +13,7 @@ located on the board.
 3. SDA
 4. SCL
 
-Upload micropython firmware to the NANO(ESP, etc) board, and then two files: main.py,
+Upload MicroPython firmware to the NANO(ESP, etc) board, and then two files: main.py,
 ds3231maxim.py and folder sensor_pack. Then open main.py in your IDE and run it.
 
 # Warning
