@@ -23,11 +23,17 @@ if __name__ == '__main__':
     print("get_alarm(0):", clock.get_alarm(0))
     print("get_alarm(1):", clock.get_alarm(1))
 
-    print("Call: set_alarm((11, 12, 13, 14), 2)")
-    clock.set_alarm((11, 12, 13, 14), 2)
-    print("get_alarm(0):", clock.get_alarm(0))
+    at = (00, 10, 11, 12)
+    k = 0   # Alarm when seconds match (every minute)
+    print(f"Call: set_alarm({at}, {k})")
+    clock.set_alarm(at, k, k)
+    print(f"get_alarm({k}):", clock.get_alarm(k))
+    k = 1
+    clock.set_alarm(at, k, k)   # Alarm when hours and minutes match
+    print(f"get_alarm({k}):", clock.get_alarm(k))
 
     print(f"Using iterator...")
     for ltime in clock:
-        print(f"Local time: {ltime}")
+        f = clock.get_alarm_flags()
+        print(f"Local time: {ltime}\talarm flags: {f}")
         utime.sleep_ms(1000)
