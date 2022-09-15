@@ -1,4 +1,3 @@
-"""мой "драйвер" часов DS3231. Я его написал, потому-что устал смотреть на ..."""
 import micropython
 
 from sensor_pack import bus_service, base_sensor
@@ -27,7 +26,8 @@ def to_bytes(num) -> bytearray:
 
 
 class DS3221(Device, Iterator):
-    """Class for work with DS3231 clock from Maxim Integrated или как она сейчас называется!?"""
+    """Class for work with DS3231 clock from Maxim Integrated или как эта фирма сейчас называется!?
+    Please read DS3231 datasheet!"""
     #           alarm 1 register masks            alarm 2 register masks
     _mask_alarms = (0x0E, 0x0C, 0x08, 0x00, 0x10), (0x06, 0x04, 0x00, 0x08)
 
@@ -91,6 +91,19 @@ class DS3221(Device, Iterator):
         Bit 1:              Alarm 2 Interrupt Enable (A2IE)
         Bit 0:              Alarm 1 Interrupt Enable (A1IE)
     """
+    def set_status(self, new_value: int) -> int:
+        """Only three bits are available for writing in the status register. EN32kHz, A2F, A1F"""
+        return self._write_register(0x0F, new_value, 1)
+    
+    def get_alarm_flags(self, clear: bool = True) -> tuple:
+        """Return two clock alarms flag (alarm_id_1, alarm_id_0) and clear it, if clear is true!"""
+        s = self.get_status()
+        a2, a1 = bool(s & 0x02), bool(s & 0x01)
+        if clear:
+            s &= 0xFC
+        self.set_status(s)
+        return a2, a1
+
     def get_control(self) -> int:
         """Возвращает байт регистра управления.
         Returns the control register byte."""
@@ -139,7 +152,7 @@ class DS3221(Device, Iterator):
             self.adapter.write_buf_to_mem(self.address, ind, value)
 
     def get_alarm(self, alarm_id: int = 0) -> tuple:
-        """return alarm as tuple: (seconds, minutes, hour, day, match_value)
+        """return alarm time as tuple: (seconds, minutes, hour, day, match_value)
         alarm_id must be 0 or 1!
         match_value description pls see in set_alarm method below!"""
         base_sensor.check_value(alarm_id, (0, 1), f"Invalid alarm_id parameter: {alarm_id}")
@@ -202,7 +215,7 @@ class DS3221(Device, Iterator):
     #           3:  Alarm when day_of week, hours, and minutes match
 
     def set_alarm(self, alarm_time: tuple, match_value: int = 2, alarm_id: int = 0):
-        """Set alarm bit mask. Alarm_id must be 0 or 1!"""
+        """Set alarm time. Alarm_id must be 0 or 1!"""
         base_sensor.check_value(alarm_id, (0, 1), f"Invalid alarm_id parameter: {alarm_id}")
         base_sensor.check_value(match_value,
                                 range(5 if 0 == alarm_id else 4),
