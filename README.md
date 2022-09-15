@@ -3,9 +3,9 @@ Micropython module for DS3231 Maxim Integrated Extremely Accurate I2C RTC.
 
 Just connect your DS3231 module board to Arduino, ESP or any other board with MicroPython firmware.
 
-Supply voltage DS3231 3.3 Volts or 5V! If you use lithium backup battery CR2032,
+Supply voltage DS3231 3.3 Volts or 5V! If you use lithium (Li-Ion) backup battery CR2032,
 supply your DS3231 board from 3.3 V only! If the supply voltage is greater than
-3.3 Volts, the СR2032 battery will become unusable due to the recharging circuit
+3.3 Volts, the СR2032 Li-Ion battery will become unusable due to the recharging circuit
 located on the board.
 
 1. VCC
