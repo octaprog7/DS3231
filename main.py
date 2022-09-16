@@ -13,6 +13,10 @@ if __name__ == '__main__':
     adaptor = I2cAdapter(i2c)
     clock = DS3221(adapter=adaptor)
 
+    tr = utime.localtime()
+    print(f"set time to actual value: {tr}")
+    clock.set_time(tr)
+    
     print(f"Call get_time() method")
     tr = clock.get_time()
     print(f"Local time: {tr}")
