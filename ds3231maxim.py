@@ -54,6 +54,8 @@ class DS3221(Device, Iterator):
         super().__init__(adapter, address, big_byte_order)
         self._tbuf = bytearray(7)
         self._alarm_buf = bytearray(4)
+        # off alarm interrupt
+        self.control_alarm_interrupt()
 
     def _read_register(self, reg_addr, bytes_count=2) -> bytes:
         """считывает из регистра датчика значение.
@@ -105,6 +107,13 @@ class DS3221(Device, Iterator):
         Returns the control register byte."""
         return self._read_register(0x0E, 1)[0]
 
+    def set_control(self, value: int) -> int:
+        """Записывает байт value в регистр управления.
+        Читайте документацию на микросхему (Control Register (0Eh))!
+        Writes the value byte to the control register.
+        Read the documentation for the chip (Control Register (0Eh))!"""
+        return self._write_register(0x0E, value, 1)
+
     def get_temperature(self) -> float:
         """возвращает температуру микросхемы часов в градусах Цельсия"""
         hi, low = self._read_register(0x11, 2)
@@ -126,11 +135,15 @@ class DS3221(Device, Iterator):
             if 5 == i:  # month
                 buf[i] = bcd_to_int(val & mask)
         # -----       YY       MM      DD      HH      MM      SS    WDAY    no year day
-        return 2_000+buf[6], buf[5], buf[4], buf[2], buf[1], buf[0], buf[3], -1,  
+        # WDAY in range [0, 6], Monday is 0
+        return 2_000+buf[6], buf[5], buf[4], buf[2], buf[1], buf[0], buf[3]-1, -1,  
     
     def set_time(self, local_time):
-        """ГГГГ, ММ, ДД, ЧЧ, ММ, СС, день недели, день года
-        это формат времени, возвращаемого функцией localtime()"""
+        """      YYYY, MM, DD, HH, MM, SS, day of week, year day
+                 ГГГГ, ММ, ДД, ЧЧ, ММ, СС, день недели, день года
+        index:    0     1   2   3   4   5       6
+        это формат времени, возвращаемого функцией localtime().
+        this is the time format returned by the localtime() function"""
         k = 5, 4, 3, 6, 2, 1, 0
         v = 3, 5, 6
         value = 0
@@ -138,11 +151,11 @@ class DS3221(Device, Iterator):
             if ind not in v:
                 value = int_to_bcd(local_time[k[ind]])
             else:
-                if 3 == ind:
+                if 3 == ind:   # WDAY start value in chip start from 1!
                     value = int_to_bcd(local_time[k[ind]] + 1)
-                if 5 == ind:
+                if 5 == ind:   # MONTH
                     value = 0x80 + int_to_bcd(local_time[k[ind]])
-                if 6 == ind:
+                if 6 == ind:   # YEAR
                     value = int_to_bcd(local_time[k[ind]] - 2_000)
         
             self.adapter.write_buf_to_mem(self.address, ind, value.to_bytes(1, sys.byteorder))
@@ -243,6 +256,20 @@ class DS3221(Device, Iterator):
                                     cnt,
                                     byte_order
                                     )
+
+    def control_alarm_interrupt(self, irq_alarm_1_enable: bool = False, irq_alarm_0_enable: bool = False):
+        """Включает или отключает прерывание от будильников (два) на выводе микросхемы INT/SQW.
+        Если вы не используете прерывание, вы должны вызвать метод get_alarm_flags в цикле для обнаружения
+        срабатывания будильника!
+        Enable or disable two clock alarms interrupt on chip pin INT/SQW.
+        If you dont use interrupt, you must call get_alarm_flags method in cycle for detect clock alarm!"""
+        cr = self.get_control()
+        cr &= 0xB8  # BBSQW = INTCN = A2IE = A1IE = 0
+        if irq_alarm_1_enable:
+            cr |= 0x06  # INTCN = A2IE = 1
+        if irq_alarm_0_enable:
+            cr |= 0x05  # INTCN = A1IE = 1
+        self.set_control(cr)
 
     def __next__(self) -> tuple:
         """For support iterating."""
