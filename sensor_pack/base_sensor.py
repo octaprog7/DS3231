@@ -40,7 +40,7 @@ class Device:
     def unpack(self, fmt_char: str, source: bytes) -> tuple:
         """распаковка массива, считанного из датчика.
         fmt_char: c, b, B, h, H, i, I, l, L, q, Q. pls see: https://docs.python.org/3/library/struct.html"""
-        if len(fmt_char) != 1:
+        if not fmt_char:
             raise ValueError(f"Invalid length fmt_char parameter: {len(fmt_char)}")
         bo = self._get_byteorder_as_str()[1]
         return ustruct.unpack(bo + fmt_char, source)
