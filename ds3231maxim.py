@@ -50,8 +50,8 @@ class DS3221(Device, Iterator):
         else:
             return bcd_to_int(0x3F & value)     # day of month
 
-    def __init__(self, adapter: bus_service.BusAdapter, address: int = 0x68, big_byte_order: bool = False):
-        super().__init__(adapter, address, big_byte_order)
+    def __init__(self, adapter: bus_service.BusAdapter, address: int = 0x68):
+        super().__init__(adapter, address, False)
         self._tbuf = bytearray(7)
         self._alarm_buf = bytearray(4)
         # off alarm interrupt
