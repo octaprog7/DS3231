@@ -1,6 +1,9 @@
 # DS3231
 MicroPython module for DS3231 Maxim Integrated Extremely Accurate I2C RTC.
 
+# Attention, the project has moved: 
+https://github.com/octaprog7/libRTC
+
 Just connect your DS3231 module board to Arduino, ESP or any other board with MicroPython firmware.
 
 Supply voltage DS3231 3.3 Volts or 5V! If you use lithium (Li-Ion) backup battery CR2032,
